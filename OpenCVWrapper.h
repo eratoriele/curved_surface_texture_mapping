@@ -14,7 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface OpenCVWrapper : NSObject
 
-- (NSMutableArray *) getAllLines: (int)x y: (int)y
++ (NSMutableArray *) getAllLines: (int)x y: (int)y
                             cannyFirstThreshold: (double)cannyFirstThreshold
                             cannySecondThreshold: (double)cannySecondThreshold
                             houghThreshold: (double)houghThreshold
@@ -22,7 +22,7 @@ NS_ASSUME_NONNULL_BEGIN
                             houghMaxGap: (double)houghMaxGap
                             image: (CVPixelBufferRef)image;
 
-- (NSArray *) getCylinderLines: (int)x y: (int)y
++ (NSArray *) getCylinderLines: (int)x y: (int)y
                                 lines: (NSArray *)lines;
 
 @end

@@ -14,8 +14,10 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
 
     @IBOutlet var sceneView: ARSCNView!
     
-    let opencv = OpenCVWrapper()
     var lines : [Int]?
+    var markerPos : [Float] = [Float]()
+    var trackedImages : Set<ARReferenceImage>?
+    var inputImageSize : String?
     
     var cannyFirstSliderValue : Float = 100
     var cannySecondSliderValue : Float = 150
@@ -30,7 +32,10 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     var houghMaxGapLabel : UILabel?
     
     var imagePicker = UIImagePickerController()
-    var image : UIImage?
+    var imagePicker2 = UIImagePickerController()
+    var refImagePicked : Bool = false
+    var refImage : UIImage?
+    var textureImage : UIImage?
     
     var lineMapButton : Bool = false
     var deneme : Bool = true
@@ -42,11 +47,6 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         
         // Set the view's delegate
         sceneView.delegate = self
-    
-        let configuration = ARWorldTrackingConfiguration()
-        
-        print(configuration.videoFormat.imageResolution)
-        widthOfRes = configuration.videoFormat.imageResolution.width
         
         heightOfView = sceneView.bounds.size.height
         
@@ -187,32 +187,81 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
 
         self.view.addSubview(lineButton)
         
-        // Ask to get the texture
-        if UIImagePickerController.isSourceTypeAvailable(.savedPhotosAlbum){
+        trackedImages = ARReferenceImage.referenceImages(inGroupNamed: "trackImages", bundle: Bundle.main)
+        
+        // Ask to get images
+        if UIImagePickerController.isSourceTypeAvailable(.savedPhotosAlbum) {
             
             imagePicker.delegate = self
             imagePicker.sourceType = .savedPhotosAlbum
             imagePicker.allowsEditing = false
             
-            present(imagePicker, animated: true, completion: nil)
+            // Ask to get the reference image
+            present(imagePicker, animated: true, completion: {
+                
+                self.imagePicker2.delegate = self
+                self.imagePicker2.sourceType = .savedPhotosAlbum
+                self.imagePicker2.allowsEditing = false
+                
+                //Present the instruction controller
+                self.imagePicker.present(self.imagePicker2, animated: true, completion: {
+                    
+                    let refImageSize = UIAlertController(title: "Reference Image Height in cm", message: "", preferredStyle: .alert)
+                    var inputTextField = UITextField()
+
+                    refImageSize.addAction(UIAlertAction(title: "Continue", style: .default, handler: { (action) -> Void in
+                        
+                        self.inputImageSize = inputTextField.text!
+                    }))
+                    refImageSize.addTextField(configurationHandler: {(textField: UITextField!) in
+                        
+                         textField.placeholder = ""
+                         inputTextField = textField
+                     })
+                    
+                    self.imagePicker2.present(refImageSize, animated: true, completion: nil)
+                })
+            })
         }
         
-        guard let trackedImages = ARReferenceImage.referenceImages(inGroupNamed: "trackImages", bundle: Bundle.main) else {
-            return
-        }
-        
-        configuration.detectionImages = trackedImages
-        configuration.maximumNumberOfTrackedImages = 1
-        
-        sceneView.session.run(configuration, options: [])
-    
     }
     
     func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
         
-        image = info[.originalImage] as? UIImage
-        
-        imagePicker.dismiss(animated: true, completion: nil)
+        if (!refImagePicked) {
+            
+            refImage = info[.originalImage] as? UIImage
+            
+            imagePicker2.dismiss(animated: true, completion: nil)
+            
+            guard let inputImgSize = NumberFormatter().number(from: inputImageSize!) else { return }
+            
+            let refimage = ARReferenceImage((refImage?.cgImage)!,
+                                            orientation: .up,
+                                            physicalWidth: CGFloat(truncating: inputImgSize) / 100)
+            
+            refimage.validate { (Error) in
+                if Error != nil {
+                    UIControl().sendAction(#selector(URLSessionTask.suspend), to: UIApplication.shared, for: nil)
+                }
+            }
+            
+            let configuration = ARWorldTrackingConfiguration()
+            widthOfRes = configuration.videoFormat.imageResolution.width
+            
+            trackedImages?.insert(refimage)
+            configuration.detectionImages = trackedImages
+            configuration.maximumNumberOfTrackedImages = 2
+            
+            sceneView.session.run(configuration, options: [])
+            
+            refImagePicked = true
+        }
+        else {
+            textureImage = info[.originalImage] as? UIImage
+            
+            imagePicker.dismiss(animated: true, completion: nil)
+        }
         
     }
     
@@ -253,21 +302,11 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                 }
             }
         }
-
-        // Find the location of edges in the screen
-        var markerPositions : [SCNVector3] = [SCNVector3]()
+        
         for anc in sceneView.session.currentFrame!.anchors {
             if anc is ARImageAnchor {
                 anchorNode = sceneView.node(for: anc)
-                
-                for ball in anchorNode!.childNodes {
-                    let ballpos = ball.worldPosition
-                    let temp = SCNVector3(ballpos.x, ballpos.y, ballpos.z)
-                    // contents are: [0] -> image plane, also the point where the image center is
-                    // [1] -> leftEdge, left side of the image
-                    // [2] -> rightEdge, right side of the image
-                    markerPositions.append(sceneView.projectPoint(temp))
-                }
+                break
             }
         }
         
@@ -279,9 +318,9 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         // [0] through [3] is left line, [4] through [7] is right line
         // [8] [9] is the point that intersects the left line
         // [10] [11] is the point that intersects the right line
-        let points = opencv.getCylinderLines(Int32(Double(markerPositions[0].x) / multiplier),
-                                             y: Int32(Double(markerPositions[0].y) / multiplier),
-                                             lines: lines!) as! [Int]
+        let points = OpenCVWrapper.getCylinderLines(Int32(Double(markerPos[0]) / multiplier),
+                                                    y: Int32(Double(markerPos[1]) / multiplier),
+                                                    lines: lines!) as! [Int]
        
         // means, no lines were found as possible matches
         if (points[0] == 0) {
@@ -291,8 +330,8 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         
         // Length of the marker is predetermined,
         // TODO Change it from 5 cm to ARReferenceImage's real life length
-        let markerDiffx = markerPositions[2].x - markerPositions[1].x
-        let MarkerDiffy = markerPositions[2].y - markerPositions[2].y
+        let markerDiffx = markerPos[4] - markerPos[2]
+        let MarkerDiffy = markerPos[5] - markerPos[3]
         let pixelsToCm = pow(Double(pow(markerDiffx, 2) + pow(MarkerDiffy, 2)), 0.5) / Double(5)
         
         // Check which line is longer, set that as the height of the cylinder
@@ -349,10 +388,10 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         }
         
         let height = Int(longerLine[0] + 1)
-        let rad = Int(radius + 1)
+        let rad = Int(radius + 2)
         
         let cylinder = SCNCylinder(radius: CGFloat(Double(rad) / 100.0), height: CGFloat(Double(height) / 100.0))
-        cylinder.firstMaterial?.diffuse.contents = image?.cgImage
+        cylinder.firstMaterial?.diffuse.contents = textureImage?.cgImage
         let cylinderNode = SCNNode(geometry: cylinder)
         cylinderNode.position.y -= Float(radius / 100.0)
         cylinderNode.position.z += Float(longerLine[1] / 100.0)
@@ -367,19 +406,30 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         for anchor in sceneView.session.currentFrame!.anchors {
             if anchor is ARImageAnchor {
             
-                let poss = SCNVector3(anchor.transform[3][0], anchor.transform[3][1], anchor.transform[3][2])
-                let projection = sceneView.projectPoint(poss)
+                let pos = SCNVector3(anchor.transform[3][0], anchor.transform[3][1], anchor.transform[3][2])
+                let projection = sceneView.projectPoint(pos)
                 
                 let multiplier : Double = Double(heightOfView! / widthOfRes!)
                 
-                lines = opencv.getAllLines(Int32(Double(projection.x) / multiplier),
-                                               y: Int32(Double(projection.y) / multiplier),
-                                               cannyFirstThreshold: Double(cannyFirstSliderValue),
-                                               cannySecondThreshold: Double(cannySecondSliderValue),
-                                               houghThreshold: Double(houghThresholdSliderValue),
-                                               houghMinLength: Double(houghMinLengthSliderValue),
-                                               houghMaxGap: Double(houghMaxGapSliderValue),
-                                               image: sceneView.session.currentFrame!.capturedImage) as? [Int]
+                lines = OpenCVWrapper.getAllLines(Int32(Double(projection.x) / multiplier),
+                                                  y: Int32(Double(projection.y) / multiplier),
+                                                  cannyFirstThreshold: Double(cannyFirstSliderValue),
+                                                  cannySecondThreshold: Double(cannySecondSliderValue),
+                                                  houghThreshold: Double(houghThresholdSliderValue),
+                                                  houghMinLength: Double(houghMinLengthSliderValue),
+                                                  houghMaxGap: Double(houghMaxGapSliderValue),
+                                                  image: sceneView.session.currentFrame!.capturedImage) as? [Int]
+                
+                // Add the current positions of the markers
+                for childNodes in sceneView.node(for: anchor)!.childNodes {
+                    let ballpos = childNodes.worldPosition
+                    let temp = sceneView.projectPoint(SCNVector3(ballpos.x, ballpos.y, ballpos.z))
+                    // contents are: [0][1] -> image plane, also the point where the image center is
+                    // [2][3] -> leftEdge, left side of the image
+                    // [4][5] -> rightEdge, right side of the image
+                    markerPos.append(temp.x)
+                    markerPos.append(temp.y)
+                }
                 
                 // Remove sublayers from previous frame
                 if (sceneView.layer.sublayers != nil) {

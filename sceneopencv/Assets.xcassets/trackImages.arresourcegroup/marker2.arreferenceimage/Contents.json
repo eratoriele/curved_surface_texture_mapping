@@ -1,6 +1,9 @@
 {
   "images" : [
-
+    {
+      "filename" : "marker2.png",
+      "idiom" : "universal"
+    }
   ],
   "info" : {
     "author" : "xcode",

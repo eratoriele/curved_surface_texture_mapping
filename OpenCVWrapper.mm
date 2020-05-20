@@ -17,13 +17,13 @@
 
 @implementation OpenCVWrapper
 
-- (NSMutableArray *) getAllLines: (int)x y: (int)y
-                            cannyFirstThreshold: (double)cannyFirstThreshold
-                            cannySecondThreshold: (double)cannySecondThreshold
-                            houghThreshold: (double)houghThreshold
-                            houghMinLength: (double)houghMinLength
-                            houghMaxGap: (double)houghMaxGap
-                            image: (CVPixelBufferRef)image {
++ (NSMutableArray *) getAllLines: (int)x y: (int)y
+                                cannyFirstThreshold: (double)cannyFirstThreshold
+                                cannySecondThreshold: (double)cannySecondThreshold
+                                houghThreshold: (double)houghThreshold
+                                houghMinLength: (double)houghMinLength
+                                houghMaxGap: (double)houghMaxGap
+                                image: (CVPixelBufferRef)image {
      
     // convert CVPixelBufferRef to cv::Mat to be used in OpenCV functions
     cv::Mat img;
@@ -61,7 +61,7 @@
     
 }
 
-- (NSArray *) getCylinderLines: (int)x y: (int)y
++ (NSArray *) getCylinderLines: (int)x y: (int)y
                                 lines: (NSArray *)lines {
     
     std::vector<int> linesonleft;
