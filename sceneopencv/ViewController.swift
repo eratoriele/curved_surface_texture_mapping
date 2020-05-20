@@ -15,9 +15,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     @IBOutlet var sceneView: ARSCNView!
     
     let opencv = OpenCVWrapper()
-    var timer : Timer!
-    var updateCV : Bool = true
-    var lines : String?
+    var lines : [Int]?
     
     var cannyFirstSliderValue : Float = 100
     var cannySecondSliderValue : Float = 150
@@ -51,8 +49,6 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         widthOfRes = configuration.videoFormat.imageResolution.width
         
         heightOfView = sceneView.bounds.size.height
-        
-        timer = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(enableUpdateCV), userInfo: nil, repeats: true)
         
         // 5 sliders are needed
         // First, canny's first treshold
@@ -217,10 +213,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         image = info[.originalImage] as? UIImage
         
         imagePicker.dismiss(animated: true, completion: nil)
-    }
-    
-    @objc func enableUpdateCV() {
-        updateCV = true;
+        
     }
     
     @objc func cannyFirstSliderChanged(sender: UISlider) {
@@ -282,20 +275,13 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
 
         let multiplier : Double = Double(heightOfView! / widthOfRes!)
         
-        let pointsSubstring = lines!.split(separator: "_")
-        var pointsInt : [Int] = [Int]()
-        
-        for i in 0...pointsSubstring.count-1 {
-            pointsInt.append(Int(String(pointsSubstring[i]))!)
-        }
-                
         // Now call for the closest left and right lines
         // [0] through [3] is left line, [4] through [7] is right line
         // [8] [9] is the point that intersects the left line
         // [10] [11] is the point that intersects the right line
         let points = opencv.getCylinderLines(Int32(Double(markerPositions[0].x) / multiplier),
                                              y: Int32(Double(markerPositions[0].y) / multiplier),
-                                             lines: pointsInt) as! [Int]
+                                             lines: lines!) as! [Int]
        
         // means, no lines were found as possible matches
         if (points[0] == 0) {
@@ -378,63 +364,58 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     
     @objc func lineButton(sender: UIButton!) {
         
-        if (updateCV && !lineMapButton) {
-            for anchor in sceneView.session.currentFrame!.anchors {
-                if anchor is ARImageAnchor {
+        for anchor in sceneView.session.currentFrame!.anchors {
+            if anchor is ARImageAnchor {
+            
+                let poss = SCNVector3(anchor.transform[3][0], anchor.transform[3][1], anchor.transform[3][2])
+                let projection = sceneView.projectPoint(poss)
                 
-                    let poss = SCNVector3(anchor.transform[3][0], anchor.transform[3][1], anchor.transform[3][2])
-                    let projection = sceneView.projectPoint(poss)
-                    
-                    let multiplier : Double = Double(heightOfView! / widthOfRes!)
-                    
-                    lines = opencv.getAllLines(Int32(Double(projection.x) / multiplier),
-                                                   y: Int32(Double(projection.y) / multiplier),
-                                                   cannyFirstThreshold: Double(cannyFirstSliderValue),
-                                                   cannySecondThreshold: Double(cannySecondSliderValue),
-                                                   houghThreshold: Double(houghThresholdSliderValue),
-                                                   houghMinLength: Double(houghMinLengthSliderValue),
-                                                   houghMaxGap: Double(houghMaxGapSliderValue),
-                                                   image: sceneView.session.currentFrame!.capturedImage)
-                    
-                    let points = lines!.split(separator: "_")
-                    
-                    // Remove sublayers from previous frame
-                    if (sceneView.layer.sublayers != nil) {
-                        for subl in sceneView.layer.sublayers! {
-                            if subl is CAShapeLayer {
-                                subl.removeFromSuperlayer()
-                            }
+                let multiplier : Double = Double(heightOfView! / widthOfRes!)
+                
+                lines = opencv.getAllLines(Int32(Double(projection.x) / multiplier),
+                                               y: Int32(Double(projection.y) / multiplier),
+                                               cannyFirstThreshold: Double(cannyFirstSliderValue),
+                                               cannySecondThreshold: Double(cannySecondSliderValue),
+                                               houghThreshold: Double(houghThresholdSliderValue),
+                                               houghMinLength: Double(houghMinLengthSliderValue),
+                                               houghMaxGap: Double(houghMaxGapSliderValue),
+                                               image: sceneView.session.currentFrame!.capturedImage) as? [Int]
+                
+                // Remove sublayers from previous frame
+                if (sceneView.layer.sublayers != nil) {
+                    for subl in sceneView.layer.sublayers! {
+                        if subl is CAShapeLayer {
+                            subl.removeFromSuperlayer()
                         }
                     }
-                
-                    if (points.count == 0) {
-                        return
-                    }
-                    for i in 0...points.count/4 - 1 {
-                        let line = UIBezierPath()
-                        
-                        line.move(to: CGPoint(x: Double(String(points[i*4]))! * multiplier,
-                                              y: Double(String(points[i*4 + 1]))! * multiplier))
-                        line.addLine(to: CGPoint(x: Double(String(points[i*4 + 2]))! * multiplier,
-                                                 y: Double(String(points[i*4 + 3]))! * multiplier))
-                        line.close()
-                            
-                        let shapeLayer = CAShapeLayer()
-                        shapeLayer.path = line.cgPath
-                        shapeLayer.opacity = 1
-                        shapeLayer.strokeColor = UIColor(red: CGFloat(arc4random()) / CGFloat(UInt32.max),
-                                                         green: CGFloat(arc4random()) / CGFloat(UInt32.max),
-                                                         blue: CGFloat(arc4random()) / CGFloat(UInt32.max),
-                                                         alpha: 1).cgColor
-                        shapeLayer.lineWidth = 3
-                        
-                        sceneView.layer.addSublayer(shapeLayer)
-                    }
+                }
+            
+                if (lines!.count == 0) {
+                    return
+                }
+                for i in 0...lines!.count/4 - 1 {
+                    let line = UIBezierPath()
                     
-                    updateCV = false
+                    line.move(to: CGPoint(x: Double(String(lines![i*4]))! * multiplier,
+                                          y: Double(String(lines![i*4 + 1]))! * multiplier))
+                    line.addLine(to: CGPoint(x: Double(String(lines![i*4 + 2]))! * multiplier,
+                                             y: Double(String(lines![i*4 + 3]))! * multiplier))
+                    line.close()
+                        
+                    let shapeLayer = CAShapeLayer()
+                    shapeLayer.path = line.cgPath
+                    shapeLayer.opacity = 1
+                    shapeLayer.strokeColor = UIColor(red: CGFloat(arc4random()) / CGFloat(UInt32.max),
+                                                     green: CGFloat(arc4random()) / CGFloat(UInt32.max),
+                                                     blue: CGFloat(arc4random()) / CGFloat(UInt32.max),
+                                                     alpha: 1).cgColor
+                    shapeLayer.lineWidth = 3
+                    
+                    sceneView.layer.addSublayer(shapeLayer)
                 }
             }
         }
+        
     }
     
     override func viewWillAppear(_ animated: Bool) {

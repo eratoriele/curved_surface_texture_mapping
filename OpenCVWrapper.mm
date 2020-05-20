@@ -17,7 +17,7 @@
 
 @implementation OpenCVWrapper
 
-- (NSString *) getAllLines: (int)x y: (int)y
+- (NSMutableArray *) getAllLines: (int)x y: (int)y
                             cannyFirstThreshold: (double)cannyFirstThreshold
                             cannySecondThreshold: (double)cannySecondThreshold
                             houghThreshold: (double)houghThreshold
@@ -48,18 +48,16 @@
     std::vector<cv::Vec4i> lines;
     cv::HoughLinesP(edges, lines, 1, CV_PI / 360, houghThreshold, houghMinLength, houghMaxGap);
     
-    NSString *returnstr = @"";
+    NSMutableArray *returnarr = [[NSMutableArray alloc] init];
     
     for(size_t i = 0; i < lines.size(); i++) {
-        returnstr = [NSString stringWithFormat: @"%@_%@_%@_%@_%@_",
-                    returnstr,
-                    [NSString stringWithFormat:@"%d", lines[i][0]],
-                    [NSString stringWithFormat:@"%d", lines[i][1]],
-                    [NSString stringWithFormat:@"%d", lines[i][2]],
-                    [NSString stringWithFormat:@"%d", lines[i][3]]];
+        [returnarr addObject: [NSNumber numberWithInt: lines[i][0]]];
+        [returnarr addObject: [NSNumber numberWithInt: lines[i][1]]];
+        [returnarr addObject: [NSNumber numberWithInt: lines[i][2]]];
+        [returnarr addObject: [NSNumber numberWithInt: lines[i][3]]];
     }
     
-    return returnstr;
+    return returnarr;
     
 }
 
