@@ -15,9 +15,9 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     @IBOutlet var sceneView: ARSCNView!
     
     var lines : [Int]?
-    var markerPos : [Float] = [Float]()
-    var trackedImages : Set<ARReferenceImage>?
-    var inputImageSize : String?
+    var markerPos : [[Float]] =  Array(repeating: Array(repeating: 0, count: 0), count: 5)
+    var trackedImages : Set<ARReferenceImage> = Set<ARReferenceImage>()
+    var inputImageSize : [String] = [String]()
     var inputImageCount : Int?
     var refImageName : Int = 0
     
@@ -36,8 +36,8 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     var imagePicker = UIImagePickerController()
     var imagePicker2 = UIImagePickerController()
     var refImagePicked : Bool = false
-    var refImage : UIImage?
-    var textureImage : UIImage?
+    var refImage : [UIImage] = [UIImage]()
+    var textureImage : [UIImage] = [UIImage]()
     
     var lineMapButton : Bool = false
     var deneme : Bool = true
@@ -188,17 +188,8 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         lineButton.addTarget(self, action: #selector(lineButton(sender:)), for: .touchUpInside)
 
         self.view.addSubview(lineButton)
-        
-        //trackedImages = ARReferenceImage.referenceImages(inGroupNamed: "trackImages", bundle: Bundle.main)
-        /*
-        let refImageCount = UIAlertController(title: "Reference Image Count", message: "", preferredStyle: .alert)
-        var inputTextFieldCount = UITextField()
-
-        refImageCount.addAction(UIAlertAction(title: "Continue", style: .default, handler: { (action) -> Void in
-        
-            self.inputImageCount = Int(inputTextFieldCount.text!)*/
             
-            // Ask to get images
+        // Ask to get images
         if UIImagePickerController.isSourceTypeAvailable(.savedPhotosAlbum) {
             
             self.imagePicker.delegate = self
@@ -215,32 +206,39 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                 //Present the instruction controller
                 self.imagePicker.present(self.imagePicker2, animated: true, completion: {
                     
-                    let refImageSize = UIAlertController(title: "Reference Image Count", message: "", preferredStyle: .alert)
-                    var inputTextField = UITextField()
+                    let refImageCount = UIAlertController(title: "Reference Image Count", message: "", preferredStyle: .alert)
+                    var inputTextFieldCount = UITextField()
 
-                    refImageSize.addAction(UIAlertAction(title: "Continue", style: .default, handler: { (action) -> Void in
+                    refImageCount.addAction(UIAlertAction(title: "Continue", style: .default, handler: { (action) -> Void in
                         
-                        self.inputImageSize = inputTextField.text!
+                        // -1 because we will always get one texture-refImage combo from here
+                        self.inputImageCount = Int(inputTextFieldCount.text!)! - 1
+                        
+                        let refImageSize = UIAlertController(title: "Reference Image Size In cm", message: "", preferredStyle: .alert)
+                        var inputTextField = UITextField()
+
+                        refImageSize.addAction(UIAlertAction(title: "Continue", style: .default, handler: { (action) -> Void in
+                            
+                            self.inputImageSize.append(inputTextField.text!)
+                        }))
+                        refImageSize.addTextField(configurationHandler: {(textField: UITextField!) in
+                            
+                             textField.placeholder = ""
+                             inputTextField = textField
+                         })
+                        
+                        self.imagePicker2.present(refImageSize, animated: true, completion: nil)
                     }))
-                    refImageSize.addTextField(configurationHandler: {(textField: UITextField!) in
+                    refImageCount.addTextField(configurationHandler: {(textField: UITextField!) in
                         
                          textField.placeholder = ""
-                         inputTextField = textField
+                         inputTextFieldCount = textField
                      })
                     
-                    self.imagePicker2.present(refImageSize, animated: true, completion: nil)
+                    self.imagePicker2.present(refImageCount, animated: true, completion: nil)
                 })
             })
         }
-        /*}))
-        refImageCount.addTextField(configurationHandler: {(textField: UITextField!) in
-            
-             textField.placeholder = ""
-             inputTextFieldCount = textField
-        })
-        
-        present(refImageCount, animated: true, completion: nil)*/
-        
         
     }
     
@@ -248,13 +246,13 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         
         if (!refImagePicked) {
             
-            refImage = info[.originalImage] as? UIImage
+            refImage.append(info[.originalImage] as! UIImage)
             
             imagePicker2.dismiss(animated: true, completion: nil)
             
-            guard let inputImgSize = NumberFormatter().number(from: inputImageSize!) else { return }
+            guard let inputImgSize = NumberFormatter().number(from: inputImageSize[refImageName]) else { return }
             
-            let refimage = ARReferenceImage((refImage?.cgImage)!,
+            let refimage = ARReferenceImage((refImage[refImageName].cgImage)!,
                                             orientation: .up,
                                             physicalWidth: CGFloat(truncating: inputImgSize) / 100)
             
@@ -267,23 +265,71 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
             refimage.name = "\(refImageName)"
             refImageName += 1
             
-            let configuration = ARWorldTrackingConfiguration()
-            widthOfRes = configuration.videoFormat.imageResolution.width
+            trackedImages.insert(refimage)
             
-            trackedImages?.insert(refimage)
-            configuration.detectionImages = trackedImages
-            configuration.maximumNumberOfTrackedImages = 2
+            if (inputImageCount! <= 0) {
             
-            sceneView.session.run(configuration, options: [])
-            
+                let configuration = ARWorldTrackingConfiguration()
+                widthOfRes = configuration.videoFormat.imageResolution.width
+                
+                configuration.detectionImages = trackedImages
+                configuration.maximumNumberOfTrackedImages = 2
+                
+                sceneView.session.run(configuration, options: [])
+                
+            }
+
             refImagePicked = true
         }
         else {
-            textureImage = info[.originalImage] as? UIImage
+            
+            refImagePicked = false
+            
+            textureImage.append(info[.originalImage] as! UIImage)
             
             imagePicker.dismiss(animated: true, completion: nil)
 
             print(inputImageCount!)
+            print(inputImageSize)
+            
+            // Repeat asking for referanceimages/textures until count is 0
+            if (inputImageCount! > 0) {
+                inputImageCount! -= 1
+                
+                if UIImagePickerController.isSourceTypeAvailable(.savedPhotosAlbum) {
+                    
+                    self.imagePicker.delegate = self
+                    self.imagePicker.sourceType = .savedPhotosAlbum
+                    self.imagePicker.allowsEditing = false
+                    
+                    // Ask to get the reference image
+                    present(self.imagePicker, animated: true, completion: {
+                        
+                        self.imagePicker2.delegate = self
+                        self.imagePicker2.sourceType = .savedPhotosAlbum
+                        self.imagePicker2.allowsEditing = false
+                        
+                        //Present the instruction controller
+                        self.imagePicker.present(self.imagePicker2, animated: true, completion: {
+                            
+                            let refImageSize = UIAlertController(title: "Reference Image Size In cm", message: "", preferredStyle: .alert)
+                            var inputTextField = UITextField()
+
+                            refImageSize.addAction(UIAlertAction(title: "Continue", style: .default, handler: { (action) -> Void in
+                                
+                                self.inputImageSize.append(inputTextField.text!)
+                            }))
+                            refImageSize.addTextField(configurationHandler: {(textField: UITextField!) in
+                                
+                                 textField.placeholder = ""
+                                 inputTextField = textField
+                             })
+                            
+                            self.imagePicker2.present(refImageSize, animated: true, completion: nil)
+                        })
+                    })
+                }
+            }
         }
         
     }
@@ -328,98 +374,107 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         
         for anc in sceneView.session.currentFrame!.anchors {
             if anc is ARImageAnchor {
+                let imganc = anc as! ARImageAnchor
+                
+                // If image isn't tracked, it isnt in the camera
+                if (!imganc.isTracked) {
+                    continue
+                }
+                let imgNum = Int(imganc.referenceImage.name!)!
+                
+                print(markerPos[imgNum])
+                
                 anchorNode = sceneView.node(for: anc)
-                break
-            }
-        }
-        
-        lineMapButton = !lineMapButton
+                
+                lineMapButton = !lineMapButton
 
-        let multiplier : Double = Double(heightOfView! / widthOfRes!)
-        
-        // Now call for the closest left and right lines
-        // [0] through [3] is left line, [4] through [7] is right line
-        // [8] [9] is the point that intersects the left line
-        // [10] [11] is the point that intersects the right line
-        let points = OpenCVWrapper.getCylinderLines(Int32(Double(markerPos[0]) / multiplier),
-                                                    y: Int32(Double(markerPos[1]) / multiplier),
-                                                    lines: lines!) as! [Int]
-       
-        // means, no lines were found as possible matches
-        if (points[0] == 0) {
-            print("no lines found")
-            return
+                 let multiplier : Double = Double(heightOfView! / widthOfRes!)
+                 
+                 // Now call for the closest left and right lines
+                 // [0] through [3] is left line, [4] through [7] is right line
+                 // [8] [9] is the point that intersects the left line
+                 // [10] [11] is the point that intersects the right line
+                 let points = OpenCVWrapper.getCylinderLines(Int32(Double(markerPos[imgNum][0]) / multiplier),
+                                                             y: Int32(Double(markerPos[imgNum][1]) / multiplier),
+                                                             lines: lines!) as! [Int]
+                
+                 // means, no lines were found as possible matches
+                 if (points[0] == 0) {
+                     print("no lines found")
+                     return
+                 }
+                 
+                 // Length of the marker is predetermined,
+                 let markerDiffx = markerPos[imgNum][4] - markerPos[imgNum][2]
+                 let MarkerDiffy = markerPos[imgNum][5] - markerPos[imgNum][3]
+                 let pixelsToCm = pow(Double(pow(markerDiffx, 2) + pow(MarkerDiffy, 2)), 0.5) / Double(inputImageSize[imgNum])!
+                 
+                 // Check which line is longer, set that as the height of the cylinder
+                 let leftDiffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[0]))! * multiplier)
+                 let leftDiffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[1]))! * multiplier)
+                 let leftLength = pow(pow(leftDiffx, 2) + pow(leftDiffy, 2), 0.5) / pixelsToCm
+                 
+                 let rightDiffx = (Double(String(points[6]))! * multiplier) - (Double(String(points[4]))! * multiplier)
+                 let rightDiffy = (Double(String(points[7]))! * multiplier) - (Double(String(points[5]))! * multiplier)
+                 let rightLength = pow(pow(rightDiffx, 2) + pow(rightDiffy, 2), 0.5) / pixelsToCm
+                 
+                 // Get the distance between left and right lines to determine the
+                 // radiues of the cylinder
+                 let linesDiffx = (Double(String(points[10]))! * multiplier) - (Double(String(points[8]))! * multiplier)
+                 let linesDiffy = (Double(String(points[11]))! * multiplier) - (Double(String(points[9]))! * multiplier)
+                 let radius = pow(pow(linesDiffx, 2) + pow(linesDiffy, 2), 0.5) / (2 * pixelsToCm)
+                 
+                 // [0] is the length of the cylinder
+                 // [1] is how high the marker is
+                 var longerLine : [Double] = [Double]()
+                 if (rightLength < leftLength) {
+                     longerLine.append(leftLength)
+                     // the lower point is x1y1
+                     if (Double(String(points[3]))! < Double(String(points[1]))!) {
+                         let diffx = (Double(String(points[0]))! * multiplier) - (Double(String(points[8]))! * multiplier)
+                         let diffy = (Double(String(points[1]))! * multiplier) - (Double(String(points[9]))! * multiplier)
+                         let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
+                         longerLine.append(heightFromGround - leftLength / 2)
+                     }
+                     // the lower point is x2y2
+                     else {
+                         let diffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[8]))! * multiplier)
+                         let diffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[9]))! * multiplier)
+                         let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
+                         longerLine.append(heightFromGround - leftLength / 2)
+                     }
+                 }
+                 else {
+                     longerLine.append(rightLength)
+                     // the lower point is x1y1
+                     if (Double(String(points[7]))! < Double(String(points[5]))!) {
+                         let diffx = (Double(String(points[4]))! * multiplier) - (Double(String(points[10]))! * multiplier)
+                         let diffy = (Double(String(points[5]))! * multiplier) - (Double(String(points[11]))! * multiplier)
+                         let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
+                         longerLine.append(heightFromGround - rightLength / 2)
+                     }
+                     // the lower point is x2y2
+                     else {
+                         let diffx = (Double(String(points[6]))! * multiplier) - (Double(String(points[10]))! * multiplier)
+                         let diffy = (Double(String(points[7]))! * multiplier) - (Double(String(points[11]))! * multiplier)
+                         let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
+                         longerLine.append(heightFromGround - rightLength / 2)
+                     }
+                 }
+                 
+                 let height = Int(longerLine[0] + 1)
+                 let rad = Int(radius + 1)
+                 
+                 let cylinder = SCNCylinder(radius: CGFloat(Double(rad) / 100.0), height: CGFloat(Double(height) / 100.0))
+                 cylinder.firstMaterial?.diffuse.contents = textureImage[imgNum].cgImage
+                 let cylinderNode = SCNNode(geometry: cylinder)
+                 cylinderNode.position.y -= Float(radius / 100.0)
+                 cylinderNode.position.z += Float(longerLine[1] / 100.0)
+                 cylinderNode.eulerAngles.x = -.pi / 2
+                 
+                 anchorNode?.addChildNode(cylinderNode)
+            }
         }
-        
-        // Length of the marker is predetermined,
-        let markerDiffx = markerPos[4] - markerPos[2]
-        let MarkerDiffy = markerPos[5] - markerPos[3]
-        let pixelsToCm = pow(Double(pow(markerDiffx, 2) + pow(MarkerDiffy, 2)), 0.5) / Double(inputImageSize!)!
-        
-        // Check which line is longer, set that as the height of the cylinder
-        let leftDiffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[0]))! * multiplier)
-        let leftDiffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[1]))! * multiplier)
-        let leftLength = pow(pow(leftDiffx, 2) + pow(leftDiffy, 2), 0.5) / pixelsToCm
-        
-        let rightDiffx = (Double(String(points[6]))! * multiplier) - (Double(String(points[4]))! * multiplier)
-        let rightDiffy = (Double(String(points[7]))! * multiplier) - (Double(String(points[5]))! * multiplier)
-        let rightLength = pow(pow(rightDiffx, 2) + pow(rightDiffy, 2), 0.5) / pixelsToCm
-        
-        // Get the distance between left and right lines to determine the
-        // radiues of the cylinder
-        let linesDiffx = (Double(String(points[10]))! * multiplier) - (Double(String(points[8]))! * multiplier)
-        let linesDiffy = (Double(String(points[11]))! * multiplier) - (Double(String(points[9]))! * multiplier)
-        let radius = pow(pow(linesDiffx, 2) + pow(linesDiffy, 2), 0.5) / (2 * pixelsToCm)
-        
-        // [0] is the length of the cylinder
-        // [1] is how high the marker is
-        var longerLine : [Double] = [Double]()
-        if (rightLength < leftLength) {
-            longerLine.append(leftLength)
-            // the lower point is x1y1
-            if (Double(String(points[3]))! < Double(String(points[1]))!) {
-                let diffx = (Double(String(points[0]))! * multiplier) - (Double(String(points[8]))! * multiplier)
-                let diffy = (Double(String(points[1]))! * multiplier) - (Double(String(points[9]))! * multiplier)
-                let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
-                longerLine.append(heightFromGround - leftLength / 2)
-            }
-            // the lower point is x2y2
-            else {
-                let diffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[8]))! * multiplier)
-                let diffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[9]))! * multiplier)
-                let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
-                longerLine.append(heightFromGround - leftLength / 2)
-            }
-        }
-        else {
-            longerLine.append(rightLength)
-            // the lower point is x1y1
-            if (Double(String(points[7]))! < Double(String(points[5]))!) {
-                let diffx = (Double(String(points[4]))! * multiplier) - (Double(String(points[10]))! * multiplier)
-                let diffy = (Double(String(points[5]))! * multiplier) - (Double(String(points[11]))! * multiplier)
-                let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
-                longerLine.append(heightFromGround - rightLength / 2)
-            }
-            // the lower point is x2y2
-            else {
-                let diffx = (Double(String(points[6]))! * multiplier) - (Double(String(points[10]))! * multiplier)
-                let diffy = (Double(String(points[7]))! * multiplier) - (Double(String(points[11]))! * multiplier)
-                let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
-                longerLine.append(heightFromGround - rightLength / 2)
-            }
-        }
-        
-        let height = Int(longerLine[0] + 1)
-        let rad = Int(radius + 2)
-        
-        let cylinder = SCNCylinder(radius: CGFloat(Double(rad) / 100.0), height: CGFloat(Double(height) / 100.0))
-        cylinder.firstMaterial?.diffuse.contents = textureImage?.cgImage
-        let cylinderNode = SCNNode(geometry: cylinder)
-        cylinderNode.position.y -= Float(radius / 100.0)
-        cylinderNode.position.z += Float(longerLine[1] / 100.0)
-        cylinderNode.eulerAngles.x = -.pi / 2
-        
-        anchorNode?.addChildNode(cylinderNode)
         
     }
     
@@ -427,15 +482,19 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         
         for anchor in sceneView.session.currentFrame!.anchors {
             if anchor is ARImageAnchor {
-            
-                let pos = SCNVector3(anchor.transform[3][0], anchor.transform[3][1], anchor.transform[3][2])
-                let projection = sceneView.projectPoint(pos)
+                
+                let imganc = anchor as! ARImageAnchor
+                
+                // If image isn't tracked, it isnt in the camera
+                if (!imganc.isTracked) {
+                    continue
+                }
+                
+                let imgNum = Int(imganc.referenceImage.name!)!
                 
                 let multiplier : Double = Double(heightOfView! / widthOfRes!)
                 
-                lines = OpenCVWrapper.getAllLines(Int32(Double(projection.x) / multiplier),
-                                                  y: Int32(Double(projection.y) / multiplier),
-                                                  cannyFirstThreshold: Double(cannyFirstSliderValue),
+                lines = OpenCVWrapper.getAllLines(Double(cannyFirstSliderValue),
                                                   cannySecondThreshold: Double(cannySecondSliderValue),
                                                   houghThreshold: Double(houghThresholdSliderValue),
                                                   houghMinLength: Double(houghMinLengthSliderValue),
@@ -443,14 +502,15 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                                                   image: sceneView.session.currentFrame!.capturedImage) as? [Int]
                 
                 // Add the current positions of the markers
+                markerPos[imgNum] = [Float]()
                 for childNodes in sceneView.node(for: anchor)!.childNodes {
                     let ballpos = childNodes.worldPosition
                     let temp = sceneView.projectPoint(SCNVector3(ballpos.x, ballpos.y, ballpos.z))
                     // contents are: [0][1] -> image plane, also the point where the image center is
                     // [2][3] -> leftEdge, left side of the image
                     // [4][5] -> rightEdge, right side of the image
-                    markerPos.append(temp.x)
-                    markerPos.append(temp.y)
+                    markerPos[imgNum].append(temp.x)
+                    markerPos[imgNum].append(temp.y)
                 }
                 
                 // Remove sublayers from previous frame

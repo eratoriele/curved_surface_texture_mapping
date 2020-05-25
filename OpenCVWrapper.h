@@ -14,8 +14,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface OpenCVWrapper : NSObject
 
-+ (NSMutableArray *) getAllLines: (int)x y: (int)y
-                            cannyFirstThreshold: (double)cannyFirstThreshold
++ (NSMutableArray *) getAllLines: (double)cannyFirstThreshold
                             cannySecondThreshold: (double)cannySecondThreshold
                             houghThreshold: (double)houghThreshold
                             houghMinLength: (double)houghMinLength
