@@ -18,6 +18,8 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     var markerPos : [Float] = [Float]()
     var trackedImages : Set<ARReferenceImage>?
     var inputImageSize : String?
+    var inputImageCount : Int?
+    var refImageName : Int = 0
     
     var cannyFirstSliderValue : Float = 100
     var cannySecondSliderValue : Float = 150
@@ -187,17 +189,24 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
 
         self.view.addSubview(lineButton)
         
-        trackedImages = ARReferenceImage.referenceImages(inGroupNamed: "trackImages", bundle: Bundle.main)
+        //trackedImages = ARReferenceImage.referenceImages(inGroupNamed: "trackImages", bundle: Bundle.main)
+        /*
+        let refImageCount = UIAlertController(title: "Reference Image Count", message: "", preferredStyle: .alert)
+        var inputTextFieldCount = UITextField()
+
+        refImageCount.addAction(UIAlertAction(title: "Continue", style: .default, handler: { (action) -> Void in
         
-        // Ask to get images
+            self.inputImageCount = Int(inputTextFieldCount.text!)*/
+            
+            // Ask to get images
         if UIImagePickerController.isSourceTypeAvailable(.savedPhotosAlbum) {
             
-            imagePicker.delegate = self
-            imagePicker.sourceType = .savedPhotosAlbum
-            imagePicker.allowsEditing = false
+            self.imagePicker.delegate = self
+            self.imagePicker.sourceType = .savedPhotosAlbum
+            self.imagePicker.allowsEditing = false
             
             // Ask to get the reference image
-            present(imagePicker, animated: true, completion: {
+            present(self.imagePicker, animated: true, completion: {
                 
                 self.imagePicker2.delegate = self
                 self.imagePicker2.sourceType = .savedPhotosAlbum
@@ -206,7 +215,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                 //Present the instruction controller
                 self.imagePicker.present(self.imagePicker2, animated: true, completion: {
                     
-                    let refImageSize = UIAlertController(title: "Reference Image Height in cm", message: "", preferredStyle: .alert)
+                    let refImageSize = UIAlertController(title: "Reference Image Count", message: "", preferredStyle: .alert)
                     var inputTextField = UITextField()
 
                     refImageSize.addAction(UIAlertAction(title: "Continue", style: .default, handler: { (action) -> Void in
@@ -223,6 +232,15 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                 })
             })
         }
+        /*}))
+        refImageCount.addTextField(configurationHandler: {(textField: UITextField!) in
+            
+             textField.placeholder = ""
+             inputTextFieldCount = textField
+        })
+        
+        present(refImageCount, animated: true, completion: nil)*/
+        
         
     }
     
@@ -246,6 +264,9 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                 }
             }
             
+            refimage.name = "\(refImageName)"
+            refImageName += 1
+            
             let configuration = ARWorldTrackingConfiguration()
             widthOfRes = configuration.videoFormat.imageResolution.width
             
@@ -261,6 +282,8 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
             textureImage = info[.originalImage] as? UIImage
             
             imagePicker.dismiss(animated: true, completion: nil)
+
+            print(inputImageCount!)
         }
         
     }
@@ -329,10 +352,9 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         }
         
         // Length of the marker is predetermined,
-        // TODO Change it from 5 cm to ARReferenceImage's real life length
         let markerDiffx = markerPos[4] - markerPos[2]
         let MarkerDiffy = markerPos[5] - markerPos[3]
-        let pixelsToCm = pow(Double(pow(markerDiffx, 2) + pow(MarkerDiffy, 2)), 0.5) / Double(5)
+        let pixelsToCm = pow(Double(pow(markerDiffx, 2) + pow(MarkerDiffy, 2)), 0.5) / Double(inputImageSize!)!
         
         // Check which line is longer, set that as the height of the cylinder
         let leftDiffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[0]))! * multiplier)
