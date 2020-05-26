@@ -15,6 +15,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     @IBOutlet var sceneView: ARSCNView!
     
     var lines : [Int]?
+    var maxRefImages : Int = 5
     var markerPos : [[Float]] =  Array(repeating: Array(repeating: 0, count: 0), count: 5)
     var trackedImages : Set<ARReferenceImage> = Set<ARReferenceImage>()
     var inputImageSize : [String] = [String]()
@@ -206,13 +207,17 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                 //Present the instruction controller
                 self.imagePicker.present(self.imagePicker2, animated: true, completion: {
                     
-                    let refImageCount = UIAlertController(title: "Reference Image Count", message: "", preferredStyle: .alert)
+                    let refImageCount = UIAlertController(title: "Reference Image Count", message: "Maximum \(self.maxRefImages)", preferredStyle: .alert)
                     var inputTextFieldCount = UITextField()
 
                     refImageCount.addAction(UIAlertAction(title: "Continue", style: .default, handler: { (action) -> Void in
                         
                         // -1 because we will always get one texture-refImage combo from here
                         self.inputImageCount = Int(inputTextFieldCount.text!)! - 1
+                        
+                        if (self.inputImageCount! < 0 || self.inputImageCount! > self.maxRefImages - 1) {
+                            UIControl().sendAction(#selector(URLSessionTask.suspend), to: UIApplication.shared, for: nil)
+                        }
                         
                         let refImageSize = UIAlertController(title: "Reference Image Size In cm", message: "", preferredStyle: .alert)
                         var inputTextField = UITextField()
@@ -273,7 +278,8 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                 widthOfRes = configuration.videoFormat.imageResolution.width
                 
                 configuration.detectionImages = trackedImages
-                configuration.maximumNumberOfTrackedImages = 2
+                // User may want to track multiple of the same reference images
+                configuration.maximumNumberOfTrackedImages = 10
                 
                 sceneView.session.run(configuration, options: [])
                 
