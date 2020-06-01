@@ -164,8 +164,6 @@
     int line2y1 = 0;
     int line2x2 = 0;
     int line2y2 = 0;
-    int line2slope = 0;
-    int line2c = 0;
     int leftLineIntersectionx = 0;
     int leftLineIntersectiony = 0;
     int rightLineIntersectionx = 0;
@@ -202,8 +200,6 @@
                     line2y1 = linesonright[j*8 + 1];
                     line2x2 = linesonright[j*8 + 2];
                     line2y2 = linesonright[j*8 + 3];
-                    line2slope = linesonright[j*8 + 4];
-                    line2c = linesonright[j*8 + 5];
                     leftLineIntersectionx = linesonleft[i*8 + 6];
                     leftLineIntersectiony = linesonleft[i*8 + 7];
                     rightLineIntersectionx = linesonright[i*8 + 6];
@@ -233,8 +229,16 @@
         line2y2 = swap;
     }
     
-    int topPointIntersectionx = line2y1;
-    
+    // If top point of right line is higher than left line
+    if (line2y1 < line1y1) {
+        line1x1 = (line2y1 - line1c) / line1slope;
+        line1y1 = line2y1;
+    }
+    // If bottom point of right line is lower than left line
+    if (line2y2 > line1y2) {
+        line1x2 = (line2y2 - line1c) / line1slope;
+        line1y2 = line2y2;
+    }
     
     NSArray *returnarr;
     
@@ -243,14 +247,6 @@
                  [NSNumber numberWithInt: line1y1],
                  [NSNumber numberWithInt: line1x2],
                  [NSNumber numberWithInt: line1y2],
-                 [NSNumber numberWithInt: line1slope],
-                 [NSNumber numberWithInt: line1c],
-                 [NSNumber numberWithInt: line2x1],
-                 [NSNumber numberWithInt: line2y1],
-                 [NSNumber numberWithInt: line2x2],
-                 [NSNumber numberWithInt: line2y2],
-                 [NSNumber numberWithInt: line2slope],
-                 [NSNumber numberWithInt: line2c],
                  [NSNumber numberWithInt: leftLineIntersectionx],
                  [NSNumber numberWithInt: leftLineIntersectiony],
                  [NSNumber numberWithInt: rightLineIntersectionx],

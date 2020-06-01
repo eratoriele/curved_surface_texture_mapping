@@ -62,7 +62,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         // add the label for slider
         let cannyFirstLabelRect = CGRect(x: 160, y: 625, width: 55, height: 15)
         cannyFirstLabel = UILabel(frame: cannyFirstLabelRect)
-        cannyFirstLabel!.text = "\(cannyFirstSliderValue)"
+        cannyFirstLabel!.text = String(format: "%.0f", cannyFirstSliderValue)
         // add the laber describing slider
         let cannyFirstDescLabelRect = CGRect(x: 10, y: 600, width: 150, height: 15)
         let cannyFirstDescLabel = UILabel(frame: cannyFirstDescLabelRect)
@@ -86,7 +86,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         // add the label for slider
         let cannySecondLabelRect = CGRect(x: 160, y: 675, width: 55, height: 15)
         cannySecondLabel = UILabel(frame: cannySecondLabelRect)
-        cannySecondLabel!.text = "\(cannySecondSliderValue)"
+        cannySecondLabel!.text = String(format: "%.0f", cannySecondSliderValue)
         // add the laber describing slider
         let cannySecondDescLabelRect = CGRect(x: 10, y: 650, width: 150, height: 15)
         let cannySecondDescLabel = UILabel(frame: cannySecondDescLabelRect)
@@ -110,7 +110,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         // add the label for slider
         let houghThresholdLabelRect = CGRect(x: 355, y: 575, width: 55, height: 15)
         houghThresholdLabel = UILabel(frame: houghThresholdLabelRect)
-        houghThresholdLabel!.text = "\(houghThresholdSliderValue)"
+        houghThresholdLabel!.text = String(format: "%.0f", houghThresholdSliderValue)
         // add the laber describing slider
         let houghThresholdDescLabelRect = CGRect(x: 205, y: 550, width: 150, height: 15)
         let houghThresholdDescLabel = UILabel(frame: houghThresholdDescLabelRect)
@@ -134,7 +134,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         // add the label for slider
         let houghMinLengthLabelRect = CGRect(x: 355, y: 625, width: 55, height: 15)
         houghMinLengthLabel = UILabel(frame: houghMinLengthLabelRect)
-        houghMinLengthLabel!.text = "\(houghMinLengthSliderValue)"
+        houghMinLengthLabel!.text = String(format: "%.0f", houghMinLengthSliderValue)
         // add the laber describing slider
         let houghMinLengthDescLabelRect = CGRect(x: 205, y: 600, width: 150, height: 15)
         let houghMinLengthDescLabel = UILabel(frame: houghMinLengthDescLabelRect)
@@ -158,7 +158,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         // add the label for slider
         let houghMaxGapLabelRect = CGRect(x: 355, y: 675, width: 55, height: 15)
         houghMaxGapLabel = UILabel(frame: houghMaxGapLabelRect)
-        houghMaxGapLabel!.text = "\(houghMaxGapSliderValue)"
+        houghMaxGapLabel!.text = String(format: "%.0f", houghMaxGapSliderValue)
         // add the laber describing slider
         let houghMaxGapDescLabelRect = CGRect(x: 205, y: 650, width: 150, height: 15)
         let houghMaxGapDescLabel = UILabel(frame: houghMaxGapDescLabelRect)
@@ -386,101 +386,68 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                 }
                 let imgNum = Int(imganc.referenceImage.name!)!
                 
-                print(markerPos[imgNum])
-                
                 anchorNode = sceneView.node(for: anc)
 
-                 let multiplier : Double = Double(heightOfView! / widthOfRes!)
-                 
-                 // Now call for the closest left and right lines
-                 // [0] through [3] is left line, [4] through [7] is right line
-                 // [8] [9] is the point that intersects the left line
-                 // [10] [11] is the point that intersects the right line
+                let multiplier : Double = Double(heightOfView! / widthOfRes!)
+
+                // Now call for the closest left and right lines
+                // [0] through [3] height of the cylinder
+                // [4] [5] is the point that intersects the left line
+                // [6] [7] is the point that intersects the right line
+                let points = OpenCVWrapper.getCylinderLines(Int32(Double(markerPos[imgNum][0]) / multiplier),
+                                                            y: Int32(Double(markerPos[imgNum][1]) / multiplier),
+                                                            lines: lines!) as! [Int]
                 
-                 // Now call for the closest left and right lines
-                 // [0] through [3] is left line endpoints, [4] slope of left line, [5] c of left line,
-                 // [6] through [9] is right line endpoints, [10] slope of right line, [11] c of right line,
-                 // [12] [13] is the point that intersects the left line
-                 // [14] [15] is the point that intersects the right line
-                 let points = OpenCVWrapper.getCylinderLines(Int32(Double(markerPos[imgNum][0]) / multiplier),
-                                                             y: Int32(Double(markerPos[imgNum][1]) / multiplier),
-                                                             lines: lines!) as! [Int]
+                // means, no lines were found as possible matches
+                if (points[0] == 0) {
+                    print("no lines found")
+                    return
+                }
+                 
+                // Length of the marker is predetermined,
+                let markerDiffx = markerPos[imgNum][4] - markerPos[imgNum][2]
+                let MarkerDiffy = markerPos[imgNum][5] - markerPos[imgNum][3]
+                let pixelsToCm = pow(Double(pow(markerDiffx, 2) + pow(MarkerDiffy, 2)), 0.5) / Double(inputImageSize[imgNum])!
+                 
+                // Check which line is longer, set that as the height of the cylinder
+                let heightDiffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[0]))! * multiplier)
+                let heightDiffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[1]))! * multiplier)
+                let heightLength = pow(pow(heightDiffx, 2) + pow(heightDiffy, 2), 0.5) / pixelsToCm
+                 
+                // Get the distance between left and right lines to determine the
+                // radiues of the cylinder
+                let linesDiffx = (Double(String(points[6]))! * multiplier) - (Double(String(points[4]))! * multiplier)
+                let linesDiffy = (Double(String(points[7]))! * multiplier) - (Double(String(points[5]))! * multiplier)
+                let radius = pow(pow(linesDiffx, 2) + pow(linesDiffy, 2), 0.5) / (2 * pixelsToCm)
+                 
+                // [0] is the length of the cylinder
+                // [1] is how high the marker is
+                var longerLine : [Double] = [Double]()
                 
-                 // means, no lines were found as possible matches
-                 if (points[0] == 0) {
-                     print("no lines found")
-                     return
-                 }
+                longerLine.append(heightLength)
+
+                // the lower point is x2y2
+                let diffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[4]))! * multiplier)
+                let diffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[5]))! * multiplier)
+                let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
+                longerLine.append(heightFromGround - heightLength / 2)
+
+                let height = Int(longerLine[0] + 1)
+                let rad = Int(radius + 1)
+                
+                let cylinder = SCNCylinder(radius: CGFloat(Double(rad) / 100.0), height: CGFloat(Double(height) / 100.0))
+                cylinder.firstMaterial?.diffuse.contents = textureImage[imgNum].cgImage
+                let cylinderNode = SCNNode(geometry: cylinder)
+                cylinderNode.position.y -= Float(radius / 100.0)
+                cylinderNode.position.z += Float(longerLine[1] / 100.0)
+                cylinderNode.eulerAngles.x = -.pi / 2
                  
-                 // Length of the marker is predetermined,
-                 let markerDiffx = markerPos[imgNum][4] - markerPos[imgNum][2]
-                 let MarkerDiffy = markerPos[imgNum][5] - markerPos[imgNum][3]
-                 let pixelsToCm = pow(Double(pow(markerDiffx, 2) + pow(MarkerDiffy, 2)), 0.5) / Double(inputImageSize[imgNum])!
-                 
-                 // Check which line is longer, set that as the height of the cylinder
-                 let leftDiffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[0]))! * multiplier)
-                 let leftDiffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[1]))! * multiplier)
-                 let leftLength = pow(pow(leftDiffx, 2) + pow(leftDiffy, 2), 0.5) / pixelsToCm
-                 
-                 let rightDiffx = (Double(String(points[8]))! * multiplier) - (Double(String(points[6]))! * multiplier)
-                 let rightDiffy = (Double(String(points[9]))! * multiplier) - (Double(String(points[7]))! * multiplier)
-                 let rightLength = pow(pow(rightDiffx, 2) + pow(rightDiffy, 2), 0.5) / pixelsToCm
-                 
-                 // Get the distance between left and right lines to determine the
-                 // radiues of the cylinder
-                 let linesDiffx = (Double(String(points[14]))! * multiplier) - (Double(String(points[12]))! * multiplier)
-                 let linesDiffy = (Double(String(points[15]))! * multiplier) - (Double(String(points[13]))! * multiplier)
-                 let radius = pow(pow(linesDiffx, 2) + pow(linesDiffy, 2), 0.5) / (2 * pixelsToCm)
-                 
-                 // [0] is the length of the cylinder
-                 // [1] is how high the marker is
-                 var longerLine : [Double] = [Double]()
-                 if (rightLength < leftLength) {
-                     longerLine.append(leftLength)
-                     // the lower point is x1y1
-                     if (Double(String(points[3]))! < Double(String(points[1]))!) {
-                         let diffx = (Double(String(points[0]))! * multiplier) - (Double(String(points[12]))! * multiplier)
-                         let diffy = (Double(String(points[1]))! * multiplier) - (Double(String(points[13]))! * multiplier)
-                         let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
-                         longerLine.append(heightFromGround - leftLength / 2)
-                     }
-                     // the lower point is x2y2
-                     else {
-                         let diffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[12]))! * multiplier)
-                         let diffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[13]))! * multiplier)
-                         let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
-                         longerLine.append(heightFromGround - leftLength / 2)
-                     }
-                 }
-                 else {
-                     longerLine.append(rightLength)
-                     // the lower point is x1y1
-                     if (Double(String(points[7]))! < Double(String(points[5]))!) {
-                         let diffx = (Double(String(points[6]))! * multiplier) - (Double(String(points[14]))! * multiplier)
-                         let diffy = (Double(String(points[7]))! * multiplier) - (Double(String(points[15]))! * multiplier)
-                         let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
-                         longerLine.append(heightFromGround - rightLength / 2)
-                     }
-                     // the lower point is x2y2
-                     else {
-                         let diffx = (Double(String(points[8]))! * multiplier) - (Double(String(points[14]))! * multiplier)
-                         let diffy = (Double(String(points[9]))! * multiplier) - (Double(String(points[15]))! * multiplier)
-                         let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
-                         longerLine.append(heightFromGround - rightLength / 2)
-                     }
-                 }
-                 
-                 let height = Int(longerLine[0] + 1)
-                 let rad = Int(radius + 1)
-                 
-                 let cylinder = SCNCylinder(radius: CGFloat(Double(rad) / 100.0), height: CGFloat(Double(height) / 100.0))
-                 cylinder.firstMaterial?.diffuse.contents = textureImage[imgNum].cgImage
-                 let cylinderNode = SCNNode(geometry: cylinder)
-                 cylinderNode.position.y -= Float(radius / 100.0)
-                 cylinderNode.position.z += Float(longerLine[1] / 100.0)
-                 cylinderNode.eulerAngles.x = -.pi / 2
-                 
-                 anchorNode?.addChildNode(cylinderNode)
+                // Remove the planes and points placed beforehand
+                for anchors in anchorNode!.childNodes {
+                    anchors.removeFromParentNode()
+                }
+                
+                anchorNode!.addChildNode(cylinderNode)
             }
         }
         
