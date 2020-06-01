@@ -22,10 +22,10 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     var inputImageCount : Int?
     var refImageName : Int = 0
     
-    var cannyFirstSliderValue : Float = 100
-    var cannySecondSliderValue : Float = 150
-    var houghThresholdSliderValue : Float = 25
-    var houghMinLengthSliderValue : Float = 400
+    var cannyFirstSliderValue : Float = 30
+    var cannySecondSliderValue : Float = 75
+    var houghThresholdSliderValue : Float = 20
+    var houghMinLengthSliderValue : Float = 650
     var houghMaxGapSliderValue : Float = 150
     
     var cannyFirstLabel : UILabel?
@@ -40,8 +40,6 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     var refImage : [UIImage] = [UIImage]()
     var textureImage : [UIImage] = [UIImage]()
     
-    var lineMapButton : Bool = false
-    var deneme : Bool = true
     var heightOfView : CGFloat?
     var widthOfRes : CGFloat?
     
@@ -391,8 +389,6 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                 print(markerPos[imgNum])
                 
                 anchorNode = sceneView.node(for: anc)
-                
-                lineMapButton = !lineMapButton
 
                  let multiplier : Double = Double(heightOfView! / widthOfRes!)
                  
@@ -400,6 +396,12 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                  // [0] through [3] is left line, [4] through [7] is right line
                  // [8] [9] is the point that intersects the left line
                  // [10] [11] is the point that intersects the right line
+                
+                 // Now call for the closest left and right lines
+                 // [0] through [3] is left line endpoints, [4] slope of left line, [5] c of left line,
+                 // [6] through [9] is right line endpoints, [10] slope of right line, [11] c of right line,
+                 // [12] [13] is the point that intersects the left line
+                 // [14] [15] is the point that intersects the right line
                  let points = OpenCVWrapper.getCylinderLines(Int32(Double(markerPos[imgNum][0]) / multiplier),
                                                              y: Int32(Double(markerPos[imgNum][1]) / multiplier),
                                                              lines: lines!) as! [Int]
@@ -420,14 +422,14 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                  let leftDiffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[1]))! * multiplier)
                  let leftLength = pow(pow(leftDiffx, 2) + pow(leftDiffy, 2), 0.5) / pixelsToCm
                  
-                 let rightDiffx = (Double(String(points[6]))! * multiplier) - (Double(String(points[4]))! * multiplier)
-                 let rightDiffy = (Double(String(points[7]))! * multiplier) - (Double(String(points[5]))! * multiplier)
+                 let rightDiffx = (Double(String(points[8]))! * multiplier) - (Double(String(points[6]))! * multiplier)
+                 let rightDiffy = (Double(String(points[9]))! * multiplier) - (Double(String(points[7]))! * multiplier)
                  let rightLength = pow(pow(rightDiffx, 2) + pow(rightDiffy, 2), 0.5) / pixelsToCm
                  
                  // Get the distance between left and right lines to determine the
                  // radiues of the cylinder
-                 let linesDiffx = (Double(String(points[10]))! * multiplier) - (Double(String(points[8]))! * multiplier)
-                 let linesDiffy = (Double(String(points[11]))! * multiplier) - (Double(String(points[9]))! * multiplier)
+                 let linesDiffx = (Double(String(points[14]))! * multiplier) - (Double(String(points[12]))! * multiplier)
+                 let linesDiffy = (Double(String(points[15]))! * multiplier) - (Double(String(points[13]))! * multiplier)
                  let radius = pow(pow(linesDiffx, 2) + pow(linesDiffy, 2), 0.5) / (2 * pixelsToCm)
                  
                  // [0] is the length of the cylinder
@@ -437,15 +439,15 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                      longerLine.append(leftLength)
                      // the lower point is x1y1
                      if (Double(String(points[3]))! < Double(String(points[1]))!) {
-                         let diffx = (Double(String(points[0]))! * multiplier) - (Double(String(points[8]))! * multiplier)
-                         let diffy = (Double(String(points[1]))! * multiplier) - (Double(String(points[9]))! * multiplier)
+                         let diffx = (Double(String(points[0]))! * multiplier) - (Double(String(points[12]))! * multiplier)
+                         let diffy = (Double(String(points[1]))! * multiplier) - (Double(String(points[13]))! * multiplier)
                          let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
                          longerLine.append(heightFromGround - leftLength / 2)
                      }
                      // the lower point is x2y2
                      else {
-                         let diffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[8]))! * multiplier)
-                         let diffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[9]))! * multiplier)
+                         let diffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[12]))! * multiplier)
+                         let diffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[13]))! * multiplier)
                          let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
                          longerLine.append(heightFromGround - leftLength / 2)
                      }
@@ -454,15 +456,15 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                      longerLine.append(rightLength)
                      // the lower point is x1y1
                      if (Double(String(points[7]))! < Double(String(points[5]))!) {
-                         let diffx = (Double(String(points[4]))! * multiplier) - (Double(String(points[10]))! * multiplier)
-                         let diffy = (Double(String(points[5]))! * multiplier) - (Double(String(points[11]))! * multiplier)
+                         let diffx = (Double(String(points[6]))! * multiplier) - (Double(String(points[14]))! * multiplier)
+                         let diffy = (Double(String(points[7]))! * multiplier) - (Double(String(points[15]))! * multiplier)
                          let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
                          longerLine.append(heightFromGround - rightLength / 2)
                      }
                      // the lower point is x2y2
                      else {
-                         let diffx = (Double(String(points[6]))! * multiplier) - (Double(String(points[10]))! * multiplier)
-                         let diffy = (Double(String(points[7]))! * multiplier) - (Double(String(points[11]))! * multiplier)
+                         let diffx = (Double(String(points[8]))! * multiplier) - (Double(String(points[14]))! * multiplier)
+                         let diffy = (Double(String(points[9]))! * multiplier) - (Double(String(points[15]))! * multiplier)
                          let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
                          longerLine.append(heightFromGround - rightLength / 2)
                      }

@@ -96,6 +96,7 @@
                         linesonleft.push_back([lines[i*4 + 2] intValue]);
                         linesonleft.push_back([lines[i*4 + 3] intValue]);
                         linesonleft.push_back(slope1);
+                        linesonleft.push_back(c1);
                         linesonleft.push_back(foundx);
                         linesonleft.push_back(slope1 * foundx + c1);
                         continue;
@@ -106,6 +107,7 @@
                         linesonright.push_back([lines[i*4 + 2] intValue]);
                         linesonright.push_back([lines[i*4 + 3] intValue]);
                         linesonright.push_back(slope1);
+                        linesonright.push_back(c1);
                         linesonright.push_back(foundx);
                         linesonright.push_back(slope1 * foundx + c1);
                         continue;
@@ -120,14 +122,15 @@
             // only restraint is:
             if ((y >= [lines[i*4 + 1] intValue] and y <= [lines[i*4 + 3] intValue]) or
                 (y >= [lines[i*4 + 3] intValue] and y <= [lines[i*4 + 1] intValue])) {
-                // if this is true, than they are defineletly crossing
+                // if this is true, than they are definetely crossing
                 // now, to find if it is either on left or right
                 if (x > [lines[i*4] intValue]) {
                     linesonleft.push_back([lines[i*4] intValue]);
                     linesonleft.push_back([lines[i*4 + 1] intValue]);
                     linesonleft.push_back([lines[i*4 + 2] intValue]);
                     linesonleft.push_back([lines[i*4 + 3] intValue]);
-                    linesonleft.push_back(INT_MAX);
+                    linesonleft.push_back(1920);
+                    linesonleft.push_back(x);
                     linesonleft.push_back([lines[i*4] intValue]);
                     linesonleft.push_back(y);
                     continue;
@@ -137,7 +140,8 @@
                     linesonright.push_back([lines[i*4 + 1] intValue]);
                     linesonright.push_back([lines[i*4 + 2] intValue]);
                     linesonright.push_back([lines[i*4 + 3] intValue]);
-                    linesonright.push_back(INT_MAX);
+                    linesonright.push_back(1920);
+                    linesonright.push_back(x);
                     linesonright.push_back([lines[i*4] intValue]);
                     linesonright.push_back(y);
                     continue;
@@ -154,29 +158,33 @@
     int line1y1 = 0;
     int line1x2 = 0;
     int line1y2 = 0;
+    int line1slope = 0;
+    int line1c = 0;
     int line2x1 = 0;
     int line2y1 = 0;
     int line2x2 = 0;
     int line2y2 = 0;
+    int line2slope = 0;
+    int line2c = 0;
     int leftLineIntersectionx = 0;
     int leftLineIntersectiony = 0;
     int rightLineIntersectionx = 0;
     int rightLineIntersectiony = 0;
 
-    for (size_t i = 0; i < linesonleft.size() / 7; i++) {
-        for (size_t j = 0; j < linesonright.size() / 7; j++) {
+    for (size_t i = 0; i < linesonleft.size() / 8; i++) {
+        for (size_t j = 0; j < linesonright.size() / 8; j++) {
         
             // If the slopes are close enough
-            int slopeDiff = abs(abs(linesonleft[i*7 + 4]) - abs(linesonright[j*7 + 4]));
-            if (slopeDiff < abs(linesonleft[i*7 + 4]) * 4 / 5 or
-                slopeDiff < abs(linesonright[j*7 + 4]) * 4 / 5) {
+            int slopeDiff = abs(abs(linesonleft[i*8 + 4]) - abs(linesonright[j*8 + 4]));
+            if (slopeDiff < abs(linesonleft[i*8 + 4]) * 4 / 5 or
+                slopeDiff < abs(linesonright[j*8 + 4]) * 4 / 5) {
             
                 // If the line is the closest
-                int far1x = linesonright[j*7] - linesonleft[i*7];
-                int far1y = linesonright[j*7 + 1] - linesonleft[i*7 + 1];
+                int far1x = linesonright[j*8] - linesonleft[i*8];
+                int far1y = linesonright[j*8 + 1] - linesonleft[i*8 + 1];
                 int far1 = pow((far1x * far1x + far1y * far1y), 0.5);
-                int far2x = linesonright[j*7 + 2] - linesonleft[i*7 + 2];
-                int far2y = linesonright[j*7 + 3] - linesonleft[i*7 + 3];
+                int far2x = linesonright[j*8 + 2] - linesonleft[i*8 + 2];
+                int far2y = linesonright[j*8 + 3] - linesonleft[i*8 + 3];
                 int far2 = pow((far2x * far2x + far2y * far2y), 0.5);
                 
                 int far = far1 + far2;
@@ -184,22 +192,49 @@
                 if (far < distance) {
                     // Record the lines as the closest to the point
                     distance = far;
-                    line1x1 = linesonleft[i*7];
-                    line1y1 = linesonleft[i*7 + 1];
-                    line1x2 = linesonleft[i*7 + 2];
-                    line1y2 = linesonleft[i*7 + 3];
-                    line2x1 = linesonright[j*7];
-                    line2y1 = linesonright[j*7 + 1];
-                    line2x2 = linesonright[j*7 + 2];
-                    line2y2 = linesonright[j*7 + 3];
-                    leftLineIntersectionx = linesonleft[i*7 + 5];
-                    leftLineIntersectiony = linesonleft[i*7 + 6];
-                    rightLineIntersectionx = linesonright[i*7 + 5];
-                    rightLineIntersectiony = linesonright[i*7 + 6];
+                    line1x1 = linesonleft[i*8];
+                    line1y1 = linesonleft[i*8 + 1];
+                    line1x2 = linesonleft[i*8 + 2];
+                    line1y2 = linesonleft[i*8 + 3];
+                    line1slope = linesonleft[i*8 + 4];
+                    line1c = linesonleft[i*8 + 5];
+                    line2x1 = linesonright[j*8];
+                    line2y1 = linesonright[j*8 + 1];
+                    line2x2 = linesonright[j*8 + 2];
+                    line2y2 = linesonright[j*8 + 3];
+                    line2slope = linesonright[j*8 + 4];
+                    line2c = linesonright[j*8 + 5];
+                    leftLineIntersectionx = linesonleft[i*8 + 6];
+                    leftLineIntersectiony = linesonleft[i*8 + 7];
+                    rightLineIntersectionx = linesonright[i*8 + 6];
+                    rightLineIntersectiony = linesonright[i*8 + 7];
                 }
             }
         }
     }
+    
+    // if points are messed up in order, make so that x1y1 is higher than x2y2
+    if (line1y1 > line1y2) {
+        int swap = line1x1;
+        line1x1 = line1x2;
+        line1x2 = swap;
+        
+        swap = line1y1;
+        line1y1 = line1y2;
+        line1y2 = swap;
+    }
+    if (line2y1 > line2y2) {
+        int swap = line2x1;
+        line2x1 = line2x2;
+        line2x2 = swap;
+        
+        swap = line2y1;
+        line2y1 = line2y2;
+        line2y2 = swap;
+    }
+    
+    int topPointIntersectionx = line2y1;
+    
     
     NSArray *returnarr;
     
@@ -208,10 +243,14 @@
                  [NSNumber numberWithInt: line1y1],
                  [NSNumber numberWithInt: line1x2],
                  [NSNumber numberWithInt: line1y2],
+                 [NSNumber numberWithInt: line1slope],
+                 [NSNumber numberWithInt: line1c],
                  [NSNumber numberWithInt: line2x1],
                  [NSNumber numberWithInt: line2y1],
                  [NSNumber numberWithInt: line2x2],
                  [NSNumber numberWithInt: line2y2],
+                 [NSNumber numberWithInt: line2slope],
+                 [NSNumber numberWithInt: line2c],
                  [NSNumber numberWithInt: leftLineIntersectionx],
                  [NSNumber numberWithInt: leftLineIntersectiony],
                  [NSNumber numberWithInt: rightLineIntersectionx],
