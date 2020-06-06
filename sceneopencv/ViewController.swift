@@ -34,6 +34,8 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     var houghMinLengthLabel : UILabel?
     var houghMaxGapLabel : UILabel?
     
+    var cylinderDataField : UILabel?
+    
     var imagePicker = UIImagePickerController()
     var imagePicker2 = UIImagePickerController()
     var refImagePicked : Bool = false
@@ -186,6 +188,14 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         lineMapButton.addTarget(self, action: #selector(buttonAction(sender:)), for: .touchUpInside)
 
         self.view.addSubview(lineMapButton)
+        
+        // add the label describing cylinder dimensions
+        let cylinderDataFieldRect = CGRect(x: 10, y: 10, width: 100, height: 100)
+        cylinderDataField = UILabel(frame: cylinderDataFieldRect)
+        cylinderDataField!.text = ""
+        cylinderDataField!.adjustsFontSizeToFitWidth = true
+        
+        self.view.addSubview(cylinderDataField!)
             
         // Ask to get images
         if UIImagePickerController.isSourceTypeAvailable(.savedPhotosAlbum) {
@@ -369,6 +379,9 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
             timer!.invalidate()
             updateCV = false
             sender.setTitle("Start Redrawing", for: .normal)
+            
+            // Update the text label
+            cylinderDataField!.text = "r = \(CGFloat(Double(currRadius) / 100.0)) l = \(CGFloat(Double(currHeight) / 100.0))"
         }
         else {
             timer = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(enableUpdateCV), userInfo: nil, repeats: true)
