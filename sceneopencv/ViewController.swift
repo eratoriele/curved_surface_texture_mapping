@@ -182,18 +182,10 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         let lineMapButtonRect = CGRect(x: 15, y: 560, width: 140, height: 40)
         let lineMapButton = UIButton(frame: lineMapButtonRect)
         lineMapButton.backgroundColor = UIColor.darkGray
-        lineMapButton.setTitle("Draw Cylinder", for: .normal)
+        lineMapButton.setTitle("Stop Redrawing", for: .normal)
         lineMapButton.addTarget(self, action: #selector(buttonAction(sender:)), for: .touchUpInside)
 
         self.view.addSubview(lineMapButton)
-        
-        let lineButtonRect = CGRect(x: 15, y: 505, width: 140, height: 40)
-        let lineButton = UIButton(frame: lineButtonRect)
-        lineButton.backgroundColor = UIColor.darkGray
-        lineButton.setTitle("Draw Lines", for: .normal)
-        lineButton.addTarget(self, action: #selector(lineButton(sender:)), for: .touchUpInside)
-
-        self.view.addSubview(lineButton)
             
         // Ask to get images
         if UIImagePickerController.isSourceTypeAvailable(.savedPhotosAlbum) {
@@ -373,162 +365,12 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     
     @objc func buttonAction(sender: UIButton!) {
         
-        var anchorNode : SCNNode?
-        
-        // Remove sublayers from previous frame
-        if (sceneView.layer.sublayers != nil) {
-            for subl in sceneView.layer.sublayers! {
-                if subl is CAShapeLayer {
-                    subl.removeFromSuperlayer()
-                }
-            }
+        if (timer!.isValid) {
+            timer!.invalidate()
+            updateCV = false
         }
-        
-        for anc in sceneView.session.currentFrame!.anchors {
-            if anc is ARImageAnchor {
-                let imganc = anc as! ARImageAnchor
-                
-                // If image isn't tracked, it isnt in the camera
-                if (!imganc.isTracked) {
-                    continue
-                }
-                let imgNum = Int(imganc.referenceImage.name!)!
-                
-                anchorNode = sceneView.node(for: anc)
-                
-                let multiplier : Double = Double(heightOfView! / widthOfRes!)
-
-                // Now call for the closest left and right lines
-                // [0] through [3] height of the cylinder
-                // [4] [5] is the point that intersects the left line
-                // [6] [7] is the point that intersects the right line
-                let points = OpenCVWrapper.getCylinderLines(Int32(Double(markerPos[imgNum][0]) / multiplier),
-                                                            y: Int32(Double(markerPos[imgNum][1]) / multiplier),
-                                                            lines: lines!) as! [Int]
-                
-                // means, no lines were found as possible matches
-                if (points[0] == 0) {
-                    print("no lines found")
-                    return
-                }
-                 
-                // Length of the marker is predetermined,
-                let markerDiffx = markerPos[imgNum][4] - markerPos[imgNum][2]
-                let MarkerDiffy = markerPos[imgNum][5] - markerPos[imgNum][3]
-                let pixelsToCm = pow(Double(pow(markerDiffx, 2) + pow(MarkerDiffy, 2)), 0.5) / Double(inputImageSize[imgNum])!
-                 
-                // Check which line is longer, set that as the height of the cylinder
-                let heightDiffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[0]))! * multiplier)
-                let heightDiffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[1]))! * multiplier)
-                let heightLength = pow(pow(heightDiffx, 2) + pow(heightDiffy, 2), 0.5) / pixelsToCm
-                 
-                // Get the distance between left and right lines to determine the
-                // radiues of the cylinder
-                let linesDiffx = (Double(String(points[6]))! * multiplier) - (Double(String(points[4]))! * multiplier)
-                let linesDiffy = (Double(String(points[7]))! * multiplier) - (Double(String(points[5]))! * multiplier)
-                let radius = pow(pow(linesDiffx, 2) + pow(linesDiffy, 2), 0.5) / (2 * pixelsToCm)
-                 
-                // [0] is the length of the cylinder
-                // [1] is how high the marker is
-                var longerLine : [Double] = [Double]()
-                
-                longerLine.append(heightLength)
-
-                // the lower point is x2y2
-                let diffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[4]))! * multiplier)
-                let diffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[5]))! * multiplier)
-                let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
-                longerLine.append(heightFromGround - heightLength / 2)
-
-                let height = Int(longerLine[0] + 1)
-                let rad = Int(radius + 1)
-                
-                let cylinder = SCNCylinder(radius: CGFloat(Double(rad) / 100.0), height: CGFloat(Double(height) / 100.0))
-                cylinder.firstMaterial?.diffuse.contents = textureImage[imgNum].cgImage
-                let cylinderNode = SCNNode(geometry: cylinder)
-                cylinderNode.position.y -= Float(radius / 100.0)
-                cylinderNode.position.z += Float(longerLine[1] / 100.0)
-                cylinderNode.eulerAngles.x = -.pi / 2
-                 
-                // Remove the planes and points placed beforehand
-                for anchors in anchorNode!.childNodes {
-                    anchors.removeFromParentNode()
-                }
-                
-                anchorNode!.addChildNode(cylinderNode)
-            }
-        }
-        
-    }
-    
-    @objc func lineButton(sender: UIButton!) {
-        
-        for anchor in sceneView.session.currentFrame!.anchors {
-            if anchor is ARImageAnchor {
-                
-                let imganc = anchor as! ARImageAnchor
-                
-                // If image isn't tracked, it isnt in the camera
-                if (!imganc.isTracked) {
-                    continue
-                }
-                
-                let imgNum = Int(imganc.referenceImage.name!)!
-                
-                let multiplier : Double = Double(heightOfView! / widthOfRes!)
-                
-                lines = OpenCVWrapper.getAllLines(Double(cannyFirstSliderValue),
-                                                  cannySecondThreshold: Double(cannySecondSliderValue),
-                                                  houghThreshold: Double(houghThresholdSliderValue),
-                                                  houghMinLength: Double(houghMinLengthSliderValue),
-                                                  houghMaxGap: Double(houghMaxGapSliderValue),
-                                                  image: sceneView.session.currentFrame!.capturedImage) as? [Int]
-                
-                // Add the current positions of the markers
-                markerPos[imgNum] = [Float]()
-                for childNodes in sceneView.node(for: anchor)!.childNodes {
-                    let ballpos = childNodes.worldPosition
-                    let temp = sceneView.projectPoint(SCNVector3(ballpos.x, ballpos.y, ballpos.z))
-                    // contents are: [0][1] -> image plane, also the point where the image center is
-                    // [2][3] -> leftEdge, left side of the image
-                    // [4][5] -> rightEdge, right side of the image
-                    markerPos[imgNum].append(temp.x)
-                    markerPos[imgNum].append(temp.y)
-                }
-                
-                // Remove sublayers from previous frame
-                if (sceneView.layer.sublayers != nil) {
-                    for subl in sceneView.layer.sublayers! {
-                        if subl is CAShapeLayer {
-                            subl.removeFromSuperlayer()
-                        }
-                    }
-                }
-            
-                if (lines!.count == 0) {
-                    return
-                }
-                for i in 0...lines!.count/4 - 1 {
-                    let line = UIBezierPath()
-                    
-                    line.move(to: CGPoint(x: Double(String(lines![i*4]))! * multiplier,
-                                          y: Double(String(lines![i*4 + 1]))! * multiplier))
-                    line.addLine(to: CGPoint(x: Double(String(lines![i*4 + 2]))! * multiplier,
-                                             y: Double(String(lines![i*4 + 3]))! * multiplier))
-                    line.close()
-                        
-                    let shapeLayer = CAShapeLayer()
-                    shapeLayer.path = line.cgPath
-                    shapeLayer.opacity = 1
-                    shapeLayer.strokeColor = UIColor(red: CGFloat(arc4random()) / CGFloat(UInt32.max),
-                                                     green: CGFloat(arc4random()) / CGFloat(UInt32.max),
-                                                     blue: CGFloat(arc4random()) / CGFloat(UInt32.max),
-                                                     alpha: 1).cgColor
-                    shapeLayer.lineWidth = 3
-                    
-                    sceneView.layer.addSublayer(shapeLayer)
-                }
-            }
+        else {
+            timer = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(enableUpdateCV), userInfo: nil, repeats: true)
         }
         
     }
