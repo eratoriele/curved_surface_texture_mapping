@@ -368,9 +368,11 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         if (timer!.isValid) {
             timer!.invalidate()
             updateCV = false
+            sender.setTitle("Start Redrawing", for: .normal)
         }
         else {
             timer = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(enableUpdateCV), userInfo: nil, repeats: true)
+            sender.setTitle("Stop Redrawing", for: .normal)
         }
         
     }
