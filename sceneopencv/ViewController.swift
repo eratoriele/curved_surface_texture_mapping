@@ -42,6 +42,12 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     
     var heightOfView : CGFloat?
     var widthOfRes : CGFloat?
+    var timer : Timer?
+    var updateCV : Bool = false
+    var currHeight : Int = 0
+    var currRadius : Int = 0
+    var smallerCylinderCounter : Int = 0
+    var smallerCylinderCounterLimit : Int = 5
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -50,6 +56,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         sceneView.delegate = self
         
         heightOfView = sceneView.bounds.size.height
+        timer = Timer.scheduledTimer(timeInterval: 1.0, target: self, selector: #selector(enableUpdateCV), userInfo: nil, repeats: true)
         
         // 5 sliders are needed
         // First, canny's first treshold
@@ -292,9 +299,6 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
             textureImage.append(info[.originalImage] as! UIImage)
             
             imagePicker.dismiss(animated: true, completion: nil)
-
-            print(inputImageCount!)
-            print(inputImageSize)
             
             // Repeat asking for referanceimages/textures until count is 0
             if (inputImageCount! > 0) {
@@ -363,6 +367,10 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
         houghMaxGapLabel!.text = String(format: "%.0f", sender.value)
     }
     
+    @objc func enableUpdateCV() {
+        updateCV = true;
+    }
+    
     @objc func buttonAction(sender: UIButton!) {
         
         var anchorNode : SCNNode?
@@ -387,7 +395,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
                 let imgNum = Int(imganc.referenceImage.name!)!
                 
                 anchorNode = sceneView.node(for: anc)
-
+                
                 let multiplier : Double = Double(heightOfView! / widthOfRes!)
 
                 // Now call for the closest left and right lines
@@ -591,11 +599,119 @@ extension ViewController : ARSessionDelegate {
             // Find the difference between how many pixels are
             // between left and right edge to determine pixels per cm
             
+            // Add an empty node that will be turned into cylinders when data is available
+            let cylinderNode = SCNNode()
+            cylinderNode.name = "cylinder"
+            
             node.addChildNode(planeOverImageNode)
             node.addChildNode(leftedgeNode)
             node.addChildNode(rightedgeNode)
+            node.addChildNode(cylinderNode)
         }
         
+    }
+    
+    func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
+        if updateCV && anchor is ARImageAnchor  {
+                
+            updateCV = false;
+            
+            let imganc = anchor as! ARImageAnchor
+            
+            let imgNum = Int(imganc.referenceImage.name!)!
+            
+            let multiplier : Double = Double(heightOfView! / widthOfRes!)
+            
+            lines = OpenCVWrapper.getAllLines(Double(cannyFirstSliderValue),
+                                              cannySecondThreshold: Double(cannySecondSliderValue),
+                                              houghThreshold: Double(houghThresholdSliderValue),
+                                              houghMinLength: Double(houghMinLengthSliderValue),
+                                              houghMaxGap: Double(houghMaxGapSliderValue),
+                                              image: sceneView.session.currentFrame!.capturedImage) as? [Int]
+            
+            // Add the current positions of the markers
+            markerPos[imgNum] = [Float]()
+            for childNodes in sceneView.node(for: anchor)!.childNodes {
+                let ballpos = childNodes.worldPosition
+                let temp = sceneView.projectPoint(SCNVector3(ballpos.x, ballpos.y, ballpos.z))
+                // contents are: [0][1] -> image plane, also the point where the image center is
+                // [2][3] -> leftEdge, left side of the image
+                // [4][5] -> rightEdge, right side of the image
+                markerPos[imgNum].append(temp.x)
+                markerPos[imgNum].append(temp.y)
+            }
+
+            // Now call for the closest left and right lines
+            // [0] through [3] height of the cylinder
+            // [4] [5] is the point that intersects the left line
+            // [6] [7] is the point that intersects the right line
+            let points = OpenCVWrapper.getCylinderLines(Int32(Double(markerPos[imgNum][0]) / multiplier),
+                                                        y: Int32(Double(markerPos[imgNum][1]) / multiplier),
+                                                        lines: lines!) as! [Int]
+            
+            // means, no lines were found as possible matches
+            if (points[0] == 0) {
+                return
+            }
+             
+            // Length of the marker is predetermined,
+            let markerDiffx = markerPos[imgNum][4] - markerPos[imgNum][2]
+            let MarkerDiffy = markerPos[imgNum][5] - markerPos[imgNum][3]
+            let pixelsToCm = pow(Double(pow(markerDiffx, 2) + pow(MarkerDiffy, 2)), 0.5) / Double(inputImageSize[imgNum])!
+             
+            // Check which line is longer, set that as the height of the cylinder
+            let heightDiffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[0]))! * multiplier)
+            let heightDiffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[1]))! * multiplier)
+            let heightLength = pow(pow(heightDiffx, 2) + pow(heightDiffy, 2), 0.5) / pixelsToCm
+             
+            // Get the distance between left and right lines to determine the
+            // radiues of the cylinder
+            let linesDiffx = (Double(String(points[6]))! * multiplier) - (Double(String(points[4]))! * multiplier)
+            let linesDiffy = (Double(String(points[7]))! * multiplier) - (Double(String(points[5]))! * multiplier)
+            let radius = pow(pow(linesDiffx, 2) + pow(linesDiffy, 2), 0.5) / (2 * pixelsToCm)
+             
+            // [0] is the length of the cylinder
+            // [1] is how high the marker is
+            var longerLine : [Double] = [Double]()
+            
+            longerLine.append(heightLength)
+
+            // the lower point is x2y2
+            let diffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[4]))! * multiplier)
+            let diffy = (Double(String(points[3]))! * multiplier) - (Double(String(points[5]))! * multiplier)
+            let heightFromGround = pow(pow(diffx, 2) + pow(diffy, 2), 0.5) / pixelsToCm
+            longerLine.append(heightFromGround - heightLength / 2)
+
+            let height = Int(longerLine[0] + 1)
+            let rad = Int(radius + 1)
+            
+            if (rad > currRadius || height > currHeight || smallerCylinderCounter >= smallerCylinderCounterLimit) {
+                                
+                currRadius = rad > currRadius ? rad : currRadius
+                currHeight = height > currHeight ? height : currHeight
+                if (smallerCylinderCounter >= smallerCylinderCounterLimit) {
+                    currRadius = rad
+                    currHeight = height
+                }
+                smallerCylinderCounter = 0
+                
+                // Edit the cylinder node
+                for childnode in node.childNodes {
+                    if (childnode.name == "cylinder") {
+                        let cylinder = SCNCylinder(radius: CGFloat(Double(currRadius) / 100.0), height: CGFloat(Double(currHeight) / 100.0))
+                        cylinder.firstMaterial?.diffuse.contents = textureImage[imgNum].cgImage
+                        childnode.geometry = cylinder
+                        childnode.position.y = -1 * Float(radius / 100.0)
+                        childnode.position.z = Float(longerLine[1] / 100.0)
+                        childnode.eulerAngles.x = -.pi / 2
+                    }
+                }
+            }
+            else {
+                smallerCylinderCounter += 1
+            }
+            
+        }
     }
     
 }

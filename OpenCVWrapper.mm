@@ -50,10 +50,19 @@
     NSMutableArray *returnarr = [[NSMutableArray alloc] init];
     
     for(size_t i = 0; i < lines.size(); i++) {
-        [returnarr addObject: [NSNumber numberWithInt: lines[i][0]]];
-        [returnarr addObject: [NSNumber numberWithInt: lines[i][1]]];
-        [returnarr addObject: [NSNumber numberWithInt: lines[i][2]]];
-        [returnarr addObject: [NSNumber numberWithInt: lines[i][3]]];
+        // if points are messed up in order, make so that x1y1 is higher than x2y2
+        if (lines[i][1] < lines[i][3]) {
+            [returnarr addObject: [NSNumber numberWithInt: lines[i][0]]];
+            [returnarr addObject: [NSNumber numberWithInt: lines[i][1]]];
+            [returnarr addObject: [NSNumber numberWithInt: lines[i][2]]];
+            [returnarr addObject: [NSNumber numberWithInt: lines[i][3]]];
+        }
+        else {
+            [returnarr addObject: [NSNumber numberWithInt: lines[i][2]]];
+            [returnarr addObject: [NSNumber numberWithInt: lines[i][3]]];
+            [returnarr addObject: [NSNumber numberWithInt: lines[i][0]]];
+            [returnarr addObject: [NSNumber numberWithInt: lines[i][1]]];
+        }
     }
     
     return returnarr;
@@ -208,26 +217,7 @@
             }
         }
     }
-    
-    // if points are messed up in order, make so that x1y1 is higher than x2y2
-    if (line1y1 > line1y2) {
-        int swap = line1x1;
-        line1x1 = line1x2;
-        line1x2 = swap;
-        
-        swap = line1y1;
-        line1y1 = line1y2;
-        line1y2 = swap;
-    }
-    if (line2y1 > line2y2) {
-        int swap = line2x1;
-        line2x1 = line2x2;
-        line2x2 = swap;
-        
-        swap = line2y1;
-        line2y1 = line2y2;
-        line2y2 = swap;
-    }
+
     
     // If top point of right line is higher than left line
     if (line2y1 < line1y1) {
