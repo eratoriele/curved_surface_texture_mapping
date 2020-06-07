@@ -81,12 +81,12 @@
         // formula of line is: y = slope1 * x + c1
         int diffx = [lines[i*4 + 2] intValue] - [lines[i*4] intValue];
         int diffy = [lines[i*4 + 3] intValue] - [lines[i*4 + 1] intValue];
-        int slope1;
+        float slope1;
         // if diffx == 0, then the line is parallel to the y axis
         // and the formula changes to x = c1
         // first, solve the rest with formula y = slope1 * x + c1
         if (diffx != 0) {
-            slope1 = diffy / diffx;
+            slope1 = (float) diffy / (float) diffx;
             int c1 = [lines[i*4 + 1] intValue] - slope1 * [lines[i*4] intValue];
             
             // The line we are looking for is from found point to all the way left

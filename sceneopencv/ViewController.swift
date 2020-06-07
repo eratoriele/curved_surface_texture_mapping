@@ -370,7 +370,7 @@ class ViewController: UIViewController, UINavigationControllerDelegate, UIImageP
     }
     
     @objc func enableUpdateCV() {
-        updateCV = true;
+        updateCV = true
     }
     
     @objc func buttonAction(sender: UIButton!) {
@@ -469,7 +469,8 @@ extension ViewController : ARSessionDelegate {
     }
     
     func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
-        if updateCV && anchor is ARImageAnchor  {
+        
+        if updateCV && anchor is ARImageAnchor {
                 
             updateCV = false;
             
@@ -514,7 +515,7 @@ extension ViewController : ARSessionDelegate {
             // Length of the marker is predetermined,
             let markerDiffx = markerPos[imgNum][4] - markerPos[imgNum][2]
             let MarkerDiffy = markerPos[imgNum][5] - markerPos[imgNum][3]
-            let pixelsToCm = pow(Double(pow(markerDiffx, 2) + pow(MarkerDiffy, 2)), 0.5) / Double(inputImageSize[imgNum])!
+            let pixelsToCm = pow(Double(pow(markerDiffx, 2) + pow(MarkerDiffy, 2)), 0.5) / (Double(inputImageSize[imgNum])! * Double(imganc.estimatedScaleFactor))
              
             // Check which line is longer, set that as the height of the cylinder
             let heightDiffx = (Double(String(points[2]))! * multiplier) - (Double(String(points[0]))! * multiplier)
